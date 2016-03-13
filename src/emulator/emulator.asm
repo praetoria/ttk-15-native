@@ -16,9 +16,12 @@ section .data
             SVC
 ;   the ttk-15 binary goes here
 data incbin "a.out.b15",4 ; we skip the 4 byte header
+; functions to get data from registers
 regjumptable: dq reg0,reg1,reg2,reg3,reg4,reg5,reg6,reg7
+; functions to put data into registers
 toregjumptable: dq toreg0,toreg1,toreg2,toreg3,toreg4,toreg5,toreg6,toreg7
 stack times 512 dd 0
+; relative stackptr
 stackptr equ stack-data
 section .text
 default rel
@@ -163,8 +166,10 @@ LOAD:
     mov edi, edx
     jmp instruction_done
 IN:
+    ;; todo call read
     jmp instruction_done
 OUT:
+    ;; todo call write
     jmp instruction_done
 ADD:
     add edi,edx
