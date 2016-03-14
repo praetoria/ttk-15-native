@@ -14,36 +14,40 @@ section .data
             INV,INV,INV,INV,INV,INV,INV,INV,\
             INV,INV,INV,INV,INV,INV,INV,INV,\
             SVC
-;   the ttk-15 binary goes here
-data incbin "a.out.b15",4 ; we skip the 4 byte header
 ; functions to get data from registers
 regjumptable: dq reg0,reg1,reg2,reg3,reg4,reg5,reg6,reg7
 ; functions to put data into registers
 toregjumptable: dq toreg0,toreg1,toreg2,toreg3,toreg4,toreg5,toreg6,toreg7
-stack times 512 dd 0
+;   the ttk-15 binary goes here
+data: incbin "a.out.b15",4 ; we skip the 4 byte header
 ; relative stackptr
-stackptr equ stack-data
+stackptr equ $-data
+stack times 1024 dd 0
 section .text
 default rel
 global _start
 ; esi is a representation of flags GEL in ttk machine
-; r14d is the frame pointer
-; r15d is the stack pointer
+; r14d is the frame pointer (sp)
+; r15d is the stack pointer (fp)
 ; r8 - r13 are r0-r5
 ; edx is used for the right hand operand. a.k.a address part + index register
 ; edi is used for the left hand operand, which is always a register
 ; ax contains the instruction, mode, register and index register values
 _start:
-    xor ebx,ebx
     xor ecx,ecx
-    mov r15d, stackptr
+    xor ebx,ebx
+    xor ebp,ebp
+    mov r14,stackptr
+    shr r14d,2
     nextinstr:
     ; get instructions
-    mov eax,[ecx*0x4+data]
-    xor edx,edx
+    mov eax,dword [ecx*0x4+data]
     ; address part to dx
-    mov dx, ax
+    movzx edx, ax
     shr eax,16
+    jmp get_index_register
+    index_register_recieved:
+    add edx,edi
     ; check mode
     ; mode = 2
     test eax,0x10
@@ -57,18 +61,13 @@ _start:
     mode_1:
         mov edx,dword [data+edx*0x4]
     mode_end:
-    mov bl,ah
+    movzx ebx,ah
     inc ecx
     ; execute instruction
     ; set edi to contain register value
     jmp get_register
     register_recieved:
-    push rdi
-    jmp get_index_register
-    index_register_recieved:
-    add edx,edi
-    pop rdi
-    jmp [instr+ebx*8]
+    jmp [instr+rbx*8]
     instruction_done:
     ; move value from edi to register
     jmp put_register
@@ -80,6 +79,45 @@ _start:
     mov edi,0x0
     syscall
 ;;;;;;;;;;;;;;;;;;;;;
+print_number:
+    push rax
+    push rcx
+    push rsi
+    push r8
+    push r9
+    push r10
+    push r11
+    push r15
+    push rdi
+    mov eax,edi
+    mov ecx,9
+    sub rsp,16
+    mov edi,10
+    print_number_loop:
+        xor edx,edx
+        div edi
+        add edx,48
+        mov [rsp+rcx],dl
+        dec ecx
+        test eax,eax
+        jne print_number_loop
+    mov eax,1
+    mov edi,1
+    lea rsi,[rsp+rcx+1]
+    mov edx,9
+    sub edx,ecx
+    syscall
+    add rsp,16
+    pop rdi
+    pop r15
+    pop r11
+    pop r10
+    pop r9
+    pop r8
+    pop rsi
+    pop rcx
+    pop rax
+    ret
 get_register:
     push rax
     shr eax,0x5
@@ -90,8 +128,10 @@ get_register:
 get_index_register:
     push rax
     and eax,0x7
+    ;; this is needed to get pop work
+    mov ebp, eax
     test eax,eax
-    jz no_index
+    je no_index
         call [regjumptable+rax*0x8]
         pop rax
         jmp index_register_recieved
@@ -160,17 +200,85 @@ toreg7:
 NOP:
     jmp instruction_done
 STORE:
-    mov [data+edx*0x4],edi
+    mov dword [data+edx*0x4],edi
     jmp instruction_done
 LOAD:
     mov edi, edx
     jmp instruction_done
+KBD equ 1
+STDIN equ 6
 IN:
-    ;; todo call read
+    cmp rdx,KBD
+    je IN_KBD
+    cmp rdx,STDIN
+    je IN_STDIN
     jmp instruction_done
+    IN_KBD:
+        ;; todo reading from KBD let's you have an integer interpreted from ascii in the register
+        jmp instruction_done
+    ;; reading from STDIN, you get an ascii value in the register
+    IN_STDIN:
+        xor edi,edi
+        push rax
+        push rcx
+        push rsi
+        push r8
+        push r9
+        push r10
+        push r11
+        push r15
+        push rdi
+        xor rax,rax
+        mov rsi,rsp
+        mov edx, 1
+        syscall
+        pop rdi
+        pop r15
+        pop r11
+        pop r10
+        pop r9
+        pop r8
+        pop rsi
+        pop rcx
+        pop rax
+        jmp instruction_done
+CRT equ 0
+STDOUT equ 7
 OUT:
-    ;; todo call write
+    ;; todo output to CRT
+    cmp rdx,CRT
+    je OUT_CRT
+    cmp rdx,STDOUT
+    je OUT_STDOUT
     jmp instruction_done
+    OUT_CRT:
+        call print_number
+        jmp instruction_done
+    OUT_STDOUT:
+        push rax
+        push rcx
+        push rsi
+        push r8
+        push r9
+        push r10
+        push r11
+        push r15
+        push rdi
+        mov eax,1
+        mov edi,1
+        mov rsi,rsp
+        mov edx,1
+        syscall
+        pop rdi
+        pop r15
+        pop r11
+        pop r10
+        pop r9
+        pop r8
+        pop rsi
+        pop rcx
+        pop rax
+        jmp instruction_done
 ADD:
     add edi,edx
     jmp instruction_done
@@ -179,16 +287,28 @@ SUB:
     jmp instruction_done
 MUL:
     push rax
-    push rdx
     mov eax,edi
     mul edx
     mov edi,eax
-    pop rdx
     pop rax
     jmp instruction_done
 DIV:
+    push rax
+    mov eax, edi
+    mov edi,edx
+    xor edx,edx
+    div edi
+    mov edi,eax
+    pop rax
     jmp instruction_done
 MOD:
+    push rax
+    mov eax, edi
+    mov edi,edx
+    xor edx,edx
+    div edi
+    mov edi,edx
+    pop rax
     jmp instruction_done
 AND:
     and edi,edx
@@ -287,70 +407,56 @@ JNGRE:
     jmp instruction_done
 CALL:
     ; pushing values
-    mov [r15d+data+4],ecx
-    mov [r15d+data+8],r14d
-    add r15d,0x8
+    mov dword [edi*4+data+4],ecx
+    mov dword [edi*4+data+8],r15d
+    add edi,0x2
     ; make new frame pointer
-    mov r14d,r15d
+    mov r15d,edi
     mov ecx,edx
     jmp instruction_done
 EXIT:
     ; popping values
-    sub r15d,0x8
-    mov ecx,[r15d+data+4]
-    mov r14d,[r15d+data+8]
-    mov eax,0x4
-    mul edx
-    sub r15d,eax
+    sub edi,0x2
+    mov ecx,dword [edi*4+data+4]
+    mov r15d,dword [edi*4+data+8]
+    sub edi,edx
     jmp instruction_done
 PUSH:
-    add r15d,0x4
-    mov [r15d+data],rdi
+    add edi,0x1
+    mov dword [edi*4+data],edx
     jmp instruction_done
 POP:
-    mov rdi,[r15d+data]
-    sub r15d,0x4
+    push rdi
+    mov edi,dword [edi*4+data]
+    test rbp,rbp
+    je POP_NOTHING
+    call [toregjumptable+rbp*0x8]
+    POP_NOTHING:
+    pop rdi
+    sub edi,0x1
     jmp instruction_done
 PUSHR:
-    mov [r15d+data+4],r8d
-    mov [r15d+data+8],r9d
-    mov [r15d+data+12],r10d
-    mov [r15d+data+16],r11d
-    mov [r15d+data+20],r12d
-    mov [r15d+data+24],r13d
-    add r15d,24
+    mov [edi*4+data+4],r8d
+    mov [edi*4+data+8],r9d
+    mov [edi*4+data+12],r10d
+    mov [edi*4+data+16],r11d
+    mov [edi*4+data+20],r12d
+    mov [edi*4+data+24],r13d
+    add edi,6
     jmp instruction_done
 POPR:
-    sub r15d,24
-    mov r8d,[r15d+data+4]
-    mov r9d,[r15d+data+8]
-    mov r10d,[r15d+data+12]
-    mov r11d,[r15d+data+16]
-    mov r12d,[r15d+data+20]
-    mov r13d,[r15d+data+24]
+    sub edi,6
+    mov r8d,[edi*4+data+4]
+    mov r9d,[edi*4+data+8]
+    mov r10d,[edi*4+data+12]
+    mov r11d,[edi*4+data+16]
+    mov r12d,[edi*4+data+20]
+    mov r13d,[edi*4+data+24]
     jmp instruction_done
 SVC:
     ; halt 
     cmp edx,0x0B
     je end
-    cmp edx,0x80
-    jne instruction_done
-    ; for now only write instruction
-    cmp r9d,0x4
-    jne end
-    push rax
-    push rcx
-    push rbx
-    push rdx
-    mov eax,r9d
-    mov ebx,r10d
-    lea ecx,[r11d*0x4+data]
-    mov edx,r12d
-    int 0x80
-    pop rdx
-    pop rbx
-    pop rcx
-    pop rax
     jmp instruction_done
 INV:
     jmp instruction_done

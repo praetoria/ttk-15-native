@@ -12,7 +12,11 @@ If one wants to compile a standalone linux binary from a .k15 source, one needs 
 
 In the future I still need to add a system call translator from the ttk-15 system calls to linux system calls. Currrently output to the console is done through using a similar interface in the ttk-15 code as the linux write system call.
 
-There will also be an extension to the in ttk-15 instruction, which allows for ascii read and write (in ttk-15 machine, it only reads integers).
+Still to do the kbd integer input method, and shra instuction, otherwise everything else is in order.
+
+##Misc##
+
+Added an example of a crackme in the root directory. If you try to reverse it, try without looking at the source code of the machine first :).
 
 ###author###
 Hiski Ruhanen
