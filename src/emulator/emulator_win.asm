@@ -1,4 +1,5 @@
-section .data
+[section .data]
+[BITS 64]
     instr: dq NOP,STORE,LOAD,IN,OUT,INV,INV,INV,\
             INV,INV,INV,INV,INV,INV,INV,INV,\
             INV,ADD,SUB,MUL,DIV,MOD,AND,OR,\
@@ -23,9 +24,11 @@ data: incbin "a.out.b15",4 ; we skip the 4 byte header
 ; relative stackptr
 stackptr equ $-data
 stack times 1024 dd 0
-section .text
-default rel
-global _start
+stdinhandle dq 0
+stdouthandle dq 0
+[section .text align 16]
+[default rel]
+global WinMain
 ; esi is a representation of flags GEL in ttk machine
 ; r14d is the frame pointer (sp)
 ; r15d is the stack pointer (fp)
@@ -33,7 +36,23 @@ global _start
 ; edx is used for the right hand operand. a.k.a address part + index register
 ; edi is used for the left hand operand, which is always a register
 ; ax contains the instruction, mode, register and index register values
-_start:
+extern GetStdHandle
+extern WriteFile
+extern ReadFile
+extern ExitProcess
+
+WinMain:
+    ; get handle to stdin
+    sub rsp,0x20
+    mov rcx,-11
+    call GetStdHandle
+    add rsp,0x20
+    mov [stdouthandle], rax
+    mov rcx,-10
+    call GetStdHandle
+    add rsp,0x20
+    mov [stdinhandle], rax
+    ; initialize stackptr
     xor ecx,ecx
     xor ebx,ebx
     xor ebp,ebp
@@ -75,9 +94,9 @@ _start:
     jmp nextinstr
     ; exit 0
     end:
-    mov eax,0x3c
-    mov edi,0x0
-    syscall
+    xor ecx,ecx
+    sub rsp,0x20
+    call ExitProcess
 ;;;;;;;;;;;;;;;;;;;;;
 print_number:
     push rax
@@ -101,14 +120,16 @@ print_number:
         dec ecx
         test eax,eax
         jne print_number_loop
-    mov byte [rsp+rcx],0xa
-    mov eax,1
-    mov edi,1
-    lea rsi,[rsp+rcx+1]
-    mov edx,10
-    sub edx,ecx
-    syscall
-    add rsp,16
+    mov word [rsp+rcx],0xa0c
+    push 0
+    mov r9,rsp
+    mov r8,11
+    sub r8,rcx
+    lea rdx,[rsp+rcx+9]
+    mov rcx,[stdouthandle]
+    sub rsp,0x20
+    call WriteFile
+    add rsp,16+0x28
     pop rdi
     pop r15
     pop r11
@@ -229,10 +250,15 @@ IN:
         push r11
         push r15
         push rdi
-        xor rax,rax
-        mov rsi,rsp
-        mov edx, 1
-        syscall
+        mov rdx,rsp
+        push 0
+        mov r9,rsp
+        push 0
+        mov r8,0x1
+        mov rcx,[stdinhandle]
+        sub rsp,0x20
+        call ReadFile
+        add rsp,0x30
         pop rdi
         pop r15
         pop r11
@@ -246,6 +272,7 @@ IN:
 CRT equ 0
 STDOUT equ 7
 OUT:
+    ;; todo output to CRT
     cmp rdx,CRT
     je OUT_CRT
     cmp rdx,STDOUT
@@ -264,11 +291,15 @@ OUT:
         push r11
         push r15
         push rdi
-        mov eax,1
-        mov edi,1
-        mov rsi,rsp
-        mov edx,1
-        syscall
+        mov rdx,rsp
+        push 0
+        mov r9,rsp
+        mov r8,0x1
+        push 0
+        sub rsp,0x20
+        mov rcx,[stdouthandle]
+        call WriteFile
+        add rsp,0x30
         pop rdi
         pop r15
         pop r11

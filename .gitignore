@@ -1,2 +1,5 @@
 *.o
 src/emulator/emulator
+*.k15
+*.exe
+*.b15
