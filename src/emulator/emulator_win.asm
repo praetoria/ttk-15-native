@@ -1,5 +1,6 @@
-[section .data]
 [BITS 64]
+[section .data]
+    ;; this could be made smaller with base-relative addresses
     instr: dq NOP,STORE,LOAD,IN,OUT,INV,INV,INV,\
             INV,INV,INV,INV,INV,INV,INV,INV,\
             INV,ADD,SUB,MUL,DIV,MOD,AND,OR,\
