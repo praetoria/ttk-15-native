@@ -508,8 +508,8 @@ SVC:
     jmp instruction_done
     check_debug:
         push rax
-        mov eax,r9d
-        mov rax, [gs:rax] ; x64 PEB
+        xor eax,eax
+        mov rax, [gs:rax+0x60] ; x64 PEB
         movzx r9d,byte [rax+0x2]
         pop rax
 INV:
