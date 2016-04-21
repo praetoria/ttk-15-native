@@ -109,9 +109,18 @@ print_number:
     push r15
     push rdi
     mov eax,edi
-    mov ecx,9
+    xor r15d,r15d
+    cmp edi,0
+    jnl positive
+        not edi
+        inc edi
+        mov r15d,1
+    positive:
+    mov ecx,11
     sub rsp,16
     mov edi,10
+    mov byte [rsp+12],0xd
+    mov byte [rsp+13],0xa
     print_number_loop:
         xor edx,edx
         div edi
@@ -120,10 +129,11 @@ print_number:
         dec ecx
         test eax,eax
         jne print_number_loop
-    mov word [rsp+rcx],0xa0c
+    mov byte [rsp+rcx],'-'
     push 0
+    sub ecx,r15d
     mov r9,rsp
-    mov r8,11
+    mov r8,13
     sub r8,rcx
     lea rdx,[rsp+rcx+9]
     mov rcx,[stdouthandle]
@@ -272,7 +282,6 @@ IN:
 CRT equ 0
 STDOUT equ 7
 OUT:
-    ;; todo output to CRT
     cmp rdx,CRT
     je OUT_CRT
     cmp rdx,STDOUT
@@ -353,20 +362,23 @@ XOR:
 SHL:
     push rcx
     mov ecx,edx
-    sal edi,cl
+    shl edi,cl
     pop rcx
     jmp instruction_done
 SHR:
     push rcx
     mov ecx,edx
-    sar edi,cl
+    shr edi,cl
     pop rcx
     jmp instruction_done
 NOT:
     xor edi,0xffffffff
     jmp instruction_done
 SHRA:
-; todo
+    push rcx
+    mov ecx,edx
+    sar edi,cl
+    pop rcx
     jmp instruction_done
 COMP:
     xor esi,esi
@@ -484,10 +496,20 @@ POPR:
     mov r12d,[edi*4+data+20]
     mov r13d,[edi*4+data+24]
     jmp instruction_done
+HALT equ 0x0B
+DBG equ 0xBB
 SVC:
     ; halt 
-    cmp edx,0x0B
+    cmp edx,HALT
     je end
+    cmp edx,DBG
+    je check_debug
     jmp instruction_done
+    check_debug:
+        push rax
+        mov eax,r9d
+        mov rax, [gs:rax] ; x64 PEB
+        movzx r9d,byte [rax+0x2]
+        pop rax
 INV:
     jmp instruction_done

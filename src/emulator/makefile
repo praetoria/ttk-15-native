@@ -9,6 +9,6 @@ emulator_win.o: emulator_win.asm a.out.b15
 emulator: emulator.o
 	ld emulator.o -o emulator -s
 emulator_win.exe: emulator_win.o
-	x86_64-w64-mingw32-gcc emulator_win.o -o emulator_win.exe -Wl,-subsystem,console -lkernel32
+	x86_64-w64-mingw32-gcc emulator_win.o -o emulator_win.exe -Wl,-subsystem,console -lkernel32 -s
 a.out.b15: ${K15}
 	ttc ${K15}

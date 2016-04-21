@@ -90,9 +90,17 @@ print_number:
     push r15
     push rdi
     mov eax,edi
-    mov ecx,9
+    xor r15d,r15d
+    cmp edi,0
+    jnl positive
+        not edi
+        inc edi
+        mov r15d,1
+    positive:
+    mov ecx,11
     sub rsp,16
     mov edi,10
+    mov byte [rsp+12],0xa
     print_number_loop:
         xor edx,edx
         div edi
@@ -101,11 +109,12 @@ print_number:
         dec ecx
         test eax,eax
         jne print_number_loop
-    mov byte [rsp+rcx],0xa
+    mov byte [rsp+rcx],'-'
+    sub ecx,r15d
     mov eax,1
     mov edi,1
     lea rsi,[rsp+rcx+1]
-    mov edx,10
+    mov edx,12
     sub edx,ecx
     syscall
     add rsp,16
@@ -322,20 +331,23 @@ XOR:
 SHL:
     push rcx
     mov ecx,edx
-    sal edi,cl
+    shl edi,cl
     pop rcx
     jmp instruction_done
 SHR:
     push rcx
     mov ecx,edx
-    sar edi,cl
+    shr edi,cl
     pop rcx
     jmp instruction_done
 NOT:
     xor edi,0xffffffff
     jmp instruction_done
 SHRA:
-; todo
+    push rcx
+    mov ecx,edx
+    sar edi,cl
+    pop rcx
     jmp instruction_done
 COMP:
     xor esi,esi
@@ -453,10 +465,17 @@ POPR:
     mov r12d,[edi*4+data+20]
     mov r13d,[edi*4+data+24]
     jmp instruction_done
+HALT equ 0x0B
+; only for debugging purposes
+DBG equ 0xBB
 SVC:
     ; halt 
-    cmp edx,0x0B
+    cmp edx,HALT
     je end
+    cmp edx,DBG
+    je debug
     jmp instruction_done
+    debug:
+        xor r9d,r9d
 INV:
     jmp instruction_done
