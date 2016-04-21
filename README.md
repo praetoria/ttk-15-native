@@ -4,7 +4,7 @@ TTK-15 emulator is a TTK-15 related project which provides a small linux x64 ass
 
 There is working code for windows 64 bit and Linux 64 bit.
 
-##compiling a standalone binary##
+##Compiling a standalone binary##
 
 If one wants to compile a standalone linux binary from a .k15 source, one needs to first compile the source into a ttk-15 binary with ttc (see ttk-15 compiler at github.com/apason/ttk-15) and then use the makefile provided in the src directory to compile the interpreter code and include the ttk-15 binary inside the resulting standalone binary.
 
@@ -17,5 +17,5 @@ Only in ri,=KBD is yet to be implemented on both versions, otherwise basic ttk-9
 
 Added an example of a crackme in the root directory. If you try to reverse it, try without looking at the source code of the machine first :).
 
-###author###
+###Author###
 Hiski Ruhanen
